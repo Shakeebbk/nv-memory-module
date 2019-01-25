@@ -289,12 +289,20 @@ public:
         }
         return rc;
     }
+
+    /* @brief Get actual page size in memory
+     *
+     * @return page size in bytes
+     */
+    size_t get_page_size(void) {
+        return data_page_size;
+    }
 };
 
 #define ATTR_TANK_DEV "ATTR_TANK.dat"
 #define MAX_ATTRIBUTES 256
 #define PAGE_SIZE 1024
-#define NUM_PAGES 10
+#define NUM_PAGES 50
 #define CACHE_SIZE 2
 
 typedef struct {
@@ -326,7 +334,7 @@ public:
 
         if(strcmp((const char*)meta.INIT_SEQ, "CODE")) {
             // First time init
-            meta.current_page = 1 + (sizeof(meta_t) / PAGE_SIZE);
+            meta.current_page = 1 + (sizeof(meta_t) / mem->get_page_size());
             meta.current_offset = 0;
             strcpy((char*)meta.INIT_SEQ, "CODE");
             memset(meta.ATTR_MAP, 0, sizeof(meta.ATTR_MAP));
@@ -354,15 +362,15 @@ public:
                 meta.ATTR_MAP[attrId].len = length;
                 meta.ATTR_MAP[attrId].page = meta.current_page;
                 meta.ATTR_MAP[attrId].offset = meta.current_offset;
-                meta.current_page = ((meta.current_page * PAGE_SIZE) + meta.current_offset + length) / PAGE_SIZE;
-                meta.current_offset = ((meta.current_page * PAGE_SIZE) + meta.current_offset + length) % PAGE_SIZE;
+                meta.current_page = ((meta.current_page * mem->get_page_size()) + meta.current_offset + length) / mem->get_page_size();
+                meta.current_offset = ((meta.current_page * mem->get_page_size()) + meta.current_offset + length) % mem->get_page_size();
                 rc = mem->write(0, &meta, sizeof(meta), 0);
                 if(rc !=  gpNvm_Result::SUCCESS) {
                     break;
                 }
             }
 
-            rc = mem->write(meta.ATTR_MAP[attrId].page, pValue, length, 0);
+            rc = mem->write(meta.ATTR_MAP[attrId].page, pValue, length, meta.ATTR_MAP[attrId].offset);
             if(rc != gpNvm_Result::SUCCESS) {
                 break;
             }
@@ -378,7 +386,7 @@ public:
 
     gpNvm_Result get_attribute(gpNvm_AttrId attrId, UInt8 *length, UInt8 *pValue) {
         *length = meta.ATTR_MAP[attrId].len;
-        return (gpNvm_Result)mem->read(meta.ATTR_MAP[attrId].page, pValue, *length, 0);
+        return (gpNvm_Result)mem->read(meta.ATTR_MAP[attrId].page, pValue, *length, meta.ATTR_MAP[attrId].offset);
     }
 
 };

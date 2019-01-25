@@ -136,6 +136,15 @@ void test_cache7(void) {
     ASSERT("test_cache7:1", 0 == strcmp((const char*)test_data, "CEAD"))
     mem.read(0, &test_data, sizeof(test_data), 0);
     ASSERT("test_cache7:2", 0 == strcmp((const char*)test_data, "BEAD"))
+
+    mem.write(0, &data1, sizeof(data1), 0);
+    mem.cache_flush();
+    mem.write(0, &data2, sizeof(data2), sizeof(data1));
+    mem.cache_flush();
+    mem.read(0, &test_data, sizeof(test_data), 0);
+    ASSERT("test_cache7:3", 0 == strcmp((const char*)test_data, "BEAD"))
+    mem.read(0, &test_data, sizeof(test_data), sizeof(data1));
+    ASSERT("test_cache7:4", 0 == strcmp((const char*)test_data, "CEAD"))
 }
 
 void test_cache8(void) {
@@ -225,6 +234,32 @@ void test_attr_3(void) {
     ASSERT("test_attr_3:2", length == sizeof(data))
 }
 
+void test_attr_4(void) {
+    unsigned char data1 = 0xBE, data2 = 0xAC, test_data = 0;
+    unsigned char length = 0;
+    gpNvm_SetAttribute(0, sizeof(data1), (UInt8*)&data1);
+    gpNvm_SetAttribute(1, sizeof(data2), (UInt8*)&data2);
+    gpNvm_SetAttribute(2, sizeof(data2), (UInt8*)&data2);
+    gpNvm_SetAttribute(3, sizeof(data1), (UInt8*)&data1);
+
+    gpNvm_GetAttribute(0, &length, (UInt8*)&test_data);
+    printf("%x %x\n", data1, test_data);
+    ASSERT("test_attr_4:1", data1 == test_data)
+    ASSERT("test_attr_4:2", length == sizeof(data1))
+
+    gpNvm_GetAttribute(1, &length, (UInt8*)&test_data);
+    ASSERT("test_attr_4:3", data2 == test_data)
+    ASSERT("test_attr_4:4", length == sizeof(data2))
+
+    gpNvm_GetAttribute(2, &length, (UInt8*)&test_data);
+    ASSERT("test_attr_4:3", data2 == test_data)
+    ASSERT("test_attr_4:4", length == sizeof(data2))
+
+    gpNvm_GetAttribute(3, &length, (UInt8*)&test_data);
+    ASSERT("test_attr_4:3", data1 == test_data)
+    ASSERT("test_attr_4:4", length == sizeof(data1))
+}
+
 void test_mem_1(void) {
     char *file = "mem_corruption.dat";
     NVM mem(file, 1024, 10, 2, false);
@@ -288,6 +323,7 @@ int main(void) {
     test_attr_1();
     test_attr_2();
     test_attr_3();
+    test_attr_4();
 
     cout << "Mem corruption tests\n";
     test_mem_1();
